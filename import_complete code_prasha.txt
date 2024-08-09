@@ -1,0 +1,446 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { FileText } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
+import Papa from 'papaparse';
+import {  X, CircleCheck } from "lucide-react";
+import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  AlertDialogCancel,
+  
+  
+
+} from "@/components/ui/alert-dialog"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+
+
+interface CsvRow {
+  [key: string]: string;
+}
+
+interface ValidationErrors {
+  [rowIndex: number]: { [column: string]: string };
+}
+
+function UserListPage() {
+  const [showImportOptions, setShowImportOptions] = useState(false);
+  const [csvData, setCsvData] = useState<CsvRow[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [showValidationColumn, setShowValidationColumn] = useState(false);
+  const [skipValidation, setSkipValidation] = useState(false);
+  const [isUploaded, setIsUploaded] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage] = useState(5); // Display only 5 rows per page
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      Papa.parse(file, {
+        header: true,
+        complete: (results) => {
+          setCsvData(results.data as CsvRow[]);
+          console.log('Parsed CSV data:', results.data);
+        },
+      });
+    }
+  };
+
+  const validateData = (data: CsvRow[]) => {
+    const errors: ValidationErrors = {};
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+    data.forEach((row, rowIndex) => {
+      const rowErrors: { [key: string]: string } = {};
+
+      if (!row['Student Names'] || row['Student Names'].trim() === '') {
+        rowErrors['Student Names'] = 'Student Name is required';
+      }
+      if (!row['Contact'] || !/^\d{10}$/.test(row['Contact'])) {
+        rowErrors['Contact'] = 'Invalid contact number';
+      }
+      if (!row['Email id'] || !emailRegex.test(row['Email id'].trim())) {
+        rowErrors['Email id'] = 'Invalid email id';
+      }
+      if (!row['Organization'] || row['Organization'].trim() === '') {
+        rowErrors['Organization'] = 'Organization is required';
+      }
+      if (!row['Program'] || row['Program'].trim() === '') {
+        rowErrors['Program'] = 'Program is required';
+      }
+      if (!row['Course'] || row['Course'].trim() === '') {
+        rowErrors['Course'] = 'Course is required';
+      }
+      if (!row['Gender'] || !['Male', 'Female', 'Other'].includes(row['Gender'])) {
+        rowErrors['Gender'] = 'Invalid gender';
+      }
+
+      if (Object.keys(rowErrors).length > 0) {
+        errors[rowIndex] = rowErrors;
+      }
+    });
+
+    setValidationErrors(errors);
+  };
+
+  const handleValidateDataClick = () => {
+    setShowValidationColumn(true);
+    handleUpload();
+  };
+
+  const handleSkipValidation = () => {
+    setSkipValidation(true);
+    setShowValidationColumn(true);
+    handleUpload();
+  };
+
+  const handleUpload = () => {
+    const filteredCsvData = filterEmptyRows(csvData);
+    const indexOfLastRow = currentPage * rowsPerPage;
+    const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+    const currentRows = filteredCsvData.slice(indexOfFirstRow, indexOfLastRow);
+
+    if (!skipValidation) {
+      // Validate only the current rows
+      validateData(currentRows);
+    }
+    setIsUploaded(true);
+  };
+
+  const importData = () => {
+    setSkipValidation(true);
+    setValidationErrors({});
+    setShowValidationColumn(true);
+    setIsUploaded(true);
+  };
+
+  const getValidationIcon = (rowIndex: number): React.ReactNode => {
+    const actualIndex = rowIndex + (currentPage - 1) * rowsPerPage;
+    if (validationErrors[actualIndex]) {
+      return <AlertCircle className="tw-text-red-500" />;
+    }
+    return <CircleCheck className="tw-text-green-500" />;
+  };
+
+  const filterEmptyRows = (data: CsvRow[]) => {
+    return data.filter(row => Object.values(row).some(value => value.trim() !== ''));
+  };
+
+  useEffect(() => {
+    if (showValidationColumn) {
+      const delayStep = 100; // delay step in milliseconds
+      currentRows.forEach((_, index) => {
+        const delay = delayStep * index;
+        setTimeout(() => {
+          const iconElement = document.querySelector(#icon-${index});
+          if (iconElement) {
+            iconElement.classList.remove('tw-opacity-0');
+            iconElement.classList.add('tw-opacity-100');
+          }
+        }, delay);
+      });
+    }
+  }, [showValidationColumn, csvData, currentPage, rowsPerPage]);
+
+  // Pagination logic
+  const filteredCsvData = filterEmptyRows(csvData);
+  const indexOfLastRow = currentPage * rowsPerPage;
+  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+  const currentRows = filteredCsvData.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(filteredCsvData.length / rowsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const renderPagination = () => {
+    const pageItems = [];
+  
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageItems.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              href="#"
+              onClick={() => handlePageChange(i)}
+              className={i === currentPage ? 'active' : ''}
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      if (currentPage > 3) {
+        pageItems.push(
+          <PaginationItem key={1}>
+            <PaginationLink href="#" onClick={() => handlePageChange(1)}>1</PaginationLink>
+          </PaginationItem>
+        );
+        pageItems.push(
+          <PaginationItem key="ellipsis-start">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pageItems.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              href="#"
+              onClick={() => handlePageChange(i)}
+              className={i === currentPage ? 'active' : ''}
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+
+      if (currentPage < totalPages - 2) {
+        pageItems.push(
+          <PaginationItem key="ellipsis-end">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+        pageItems.push(
+          <PaginationItem key={totalPages}>
+            <PaginationLink href="#" onClick={() => handlePageChange(totalPages)}>{totalPages}</PaginationLink>
+          </PaginationItem>
+        );
+      }
+    }
+  
+    return pageItems;
+  };
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleDownloadClick = () => {
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+  };
+  
+  return (
+    <div>
+      <Card className="tw-mb-6">
+        <CardContent>
+          <div className="tw-flex tw-items-start tw-space-x-6 tw-w-full tw-h-auto tw-mb-6 tw-mt-6">
+            {/* Data Type Dropdown */}
+            <div className="tw-flex tw-flex-col tw-items-start tw-space-y-2">
+              <label htmlFor="dataType" className="tw-text-black tw-font-medium ">Data Type</label>
+              <select id="dataType" className="tw-h-[30px] tw-px-3 tw-border tw-border-blue-900 tw-rounded-md tw-text-blue-900">
+                <option value="students">Students</option>
+                {/* Add more options as needed */}
+              </select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="tw-flex tw-flex-col tw-space-y-2 tw-w-full">
+              <label htmlFor="actions" className="tw-text-black tw-font-medium">Select Actions</label>
+              <div className="tw-flex tw-space-x-2 tw-flex-wrap">
+                <Button 
+                  variant="outline" 
+                  className="tw-h-[30px] tw-w-auto tw-px-4 tw-bg-white tw-flex tw-items-center tw-border tw-border-blue-900 tw-text-blue-900"
+                  onClick={() => setShowImportOptions(true)}
+                >
+                  Bulk Import
+                </Button>
+                <Button variant="outline" className="  tw-h-[30px] tw-w-auto tw-px-4 tw-bg-white tw-border tw-border-blue-900 tw-text-blue-900   tw-flex tw-items-center">
+                  Bulk Export
+                </Button>
+                <Button variant="outline" className="tw-h-[30px] tw-w-auto tw-px-4 tw-bg-white tw-border tw-border-blue-950 tw-flex tw-items-center tw-text-blue-900">
+                  Bulk Update
+                </Button>
+
+                {/* Choose File Section */}
+                <div className="tw-flex tw-flex-col tw-items-start tw-space-y-2 tw-ml-4 tw-mt-[-30px] tw-pl-8">
+                  <label htmlFor="uploadFile" className="tw-font-medium tw-text-black">Upload File</label>
+                  <div className="tw-flex tw-items-center tw-space-x-2">
+                    <Button
+                      variant="outline"
+                      className="tw-h-[24px] tw-px-3 tw-text-xs tw-flex tw-items-center tw-border-blue-900 tw-font-semibold tw-text-blue-950"
+                      onClick={handleFileButtonClick}
+                    >
+                      <FileText className="tw-mr-1" size={14} />
+                      Upload File
+                    </Button>
+                    <div className="tw-text-gray-600 tw-text-xs tw-font-light tw-italic"> only csv format is allowed</div>
+                    <input
+                      type="file"
+                      id="uploadFile"
+                      ref={fileInputRef}
+                      className="tw-hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                  <div className="tw-flex tw-items-center tw-mt-2">
+                    <input type="checkbox" id="firstRow" className="tw-form-checkbox tw-text-blue-500" />
+                    <label htmlFor="firstRow" className="tw-ml-2 tw-text-gray-700">First rows contain column names</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="tw-mt-6 tw-flex tw-flex-col tw-items-start">
+            {/* Any additional content can go here */}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* New Card Component with Buttons and CSV Data */}
+      {showImportOptions && (
+        <Card className="tw-w-full tw-p-6">
+          <CardContent>
+            <div className="tw-flex tw-justify-between tw-items-center">
+              <div className="tw-flex tw-space-x-4">
+                <Button
+                  variant="default"
+                  className="tw-w-[150px] tw-h-[auto] tw-font-semibold hover:tw-bg-none"
+                  onClick={skipValidation ? importData : handleValidateDataClick}
+                >
+                  {skipValidation ? 'Import Data' : 'Validate Data'}
+                </Button>
+                <Button variant="outline" className="tw-border-blue-900 tw-text-[#1D1F71] tw-px-6 tw-py-2">Cancel</Button>
+                <Button variant="link" className="tw-text-blue-950 tw-px-6 tw-py-2 tw-underline tw-font-bold" onClick={handleSkipValidation}>Skip Validation</Button>
+              </div>
+              <Button onClick={handleDownloadClick}  className="tw-bg-blue-950 tw-text-white tw-px-6 tw-py-2">Upload</Button>
+            </div>
+            <p className="tw-text-sm tw-text-gray-700 tw-mt-2">Please review the field each column has matched to. Then Click 'Validation Data' to check the data for errors.</p>
+
+            {/* CSV Data Table */}
+            {filteredCsvData.length > 0 && (
+              <div className="tw-mt-6 tw-overflow-x-auto tw-w-[950px]">
+                <Table className="tw-w-[946px] tw-h-[455px] tw-bg-[#FFFAED] tw-border tw-border-gray-300 tw-border-separate tw-border-spacing-0">
+                  <TableHeader>
+                    <TableRow>
+                      {showValidationColumn && (
+                        <TableHead className="tw-px-4 tw-py-2 tw-border-b tw-font-bold tw-text-left tw-border-r tw-border-gray-300"></TableHead>
+                      )}
+                      {Object.keys(filteredCsvData[0]).map((key) => (
+                        <TableHead key={key} className="tw-px-4 tw-py-2 tw-border-b tw-font-bold tw-text-left tw-border-r tw-border-gray-300">{key}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentRows.map((row, rowIndex) => (
+                      <TableRow key={rowIndex}>
+                        {showValidationColumn && (
+                          <TableCell className="tw-px-4 tw-py-2 tw-border-b tw-border-r tw-border-gray-300">
+                            <span id={icon-${rowIndex}} className="tw-opacity-0 tw-transition-opacity tw-duration-500">
+                              {getValidationIcon(rowIndex)}
+                            </span>
+                          </TableCell>
+                        )}
+                        {Object.values(row).map((value, cellIndex) => (
+                          <TableCell key={cellIndex} className="tw-px-4 tw-py-2 tw-border-b tw-border-r tw-border-gray-300">{value}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            
+            {/* Pagination */}
+            <div className="tw-flex tw-justify-between tw-items-center tw-w-full tw-h-[45px] tw-top-[409px] tw-left-[2px] tw-p-[15px_5px_0_5px] tw-opacity-100">
+              <div className="tw-text-gray-700 tw-w-[61px] tw-h-[30px] tw-gap-[25px]">
+                <span className="tw-mr-4">Page</span>
+                {currentPage}
+              </div>
+              <div className="tw-flex tw-items-center tw-space-x-2">
+                <Pagination className="tw-flex tw-items-center tw-space-x-2">
+                  <PaginationContent className="tw-flex tw-items-center">
+                    <PaginationItem>
+                      <PaginationPrevious
+                        className=" tw-py-1"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      />
+                    </PaginationItem>
+                    {renderPagination()} {/* This is where renderPagination is used */}
+                    <PaginationItem>
+                      <PaginationNext
+                        className="tw-px-3 tw-py-1"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </div>
+    
+
+            <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+  <AlertDialogTrigger asChild>
+    {/* Your trigger component */}
+  </AlertDialogTrigger>
+  <AlertDialogContent className="tw-w-[320px] tw-h-[228px] tw-box-border">
+  <div className="tw-absolute tw-top-0 tw-right-0 tw-p-2">
+      <AlertDialogCancel className="!tw-ring-[-2] hover:!tw-bg-none">
+        <X className="tw-w-[15px] tw-h-[15px]" />
+      </AlertDialogCancel>
+    </div>
+    <AlertDialogHeader className="tw-text-center">
+      <div className="tw-text-green-500 tw-flex tw-justify-center">
+      <CircleCheck className="tw-w-[66px] tw-h-[50px]" />
+      </div>
+      <div className="tw-flex tw-justify-center tw-mb-8">
+        <AlertDialogTitle>
+          <span className="tw-font-montserrat tw-font-semibold tw-text-[14px] tw-leading-[19.5px] tw-text-center ">
+            Completed
+          </span>
+        </AlertDialogTitle>
+      </div>
+    </AlertDialogHeader>
+    <AlertDialogDescription>
+      <div className="tw-flex tw-flex-col tw-mt-15 tw-px-6 tw-py-2  !tw-border-primary tw-w-full tw-rounded-[10px] tw-whitespace-nowrap">
+        Your file has been Uploaded successfully.
+      </div>
+    </AlertDialogDescription>
+    <div className="tw-flex tw-justify-center tw-mb-20">
+      <Button className="tw-bg-primary tw-w-[150px] tw-rounded tw-text-white ">
+        Continue
+      </Button>
+    </div>
+  </AlertDialogContent>
+</AlertDialog>
+
+            
+
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+export default UserListPage;
